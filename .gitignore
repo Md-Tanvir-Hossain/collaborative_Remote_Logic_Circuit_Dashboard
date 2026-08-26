@@ -1,0 +1,7 @@
+/vendor/
+/var/cache/
+/var/log/
+/var/symfony-lsp/
+/.php-cs-fixer.cache
+/.DS_Store
+**/.DS_Store

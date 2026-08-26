@@ -1,0 +1,15 @@
+services:
+  app:
+    image: php:8.3-cli
+    working_dir: /app
+    volumes: [".:/app"]
+    ports: ["8000:8000"]
+    command: php -S 0.0.0.0:8000 -t public
+  mercure:
+    image: dunglas/mercure
+    restart: unless-stopped
+    environment:
+      SERVER_NAME: ":80"
+      MERCURE_PUBLISHER_JWT_KEY: change-me
+      MERCURE_SUBSCRIBER_JWT_KEY: change-me
+    ports: ["3000:80"]
