@@ -42,8 +42,7 @@ async function lobby() {
   if (currentScreen !== "lobby") return;
   root.innerHTML =
     header() +
-    `<section class="wrap"><div class="section-head"><div><div class="kicker">Workspace</div><h1>Choose a room</h1></div><div class="section-actions"><button class="join" id="back-name">Back</button><button class="primary" id="new">New circuit</button></div></div><div class="rooms">${rooms.length ? rooms.map((r) => `<div class="room"><div><h3>${r.label}</h3><small>Grid ${r.gridSize}px · created ${new Date(r.createdAt).toLocaleDateString()}</small></div><span class="meta">${r.participants}/2 connected</span><button class="join" ${r.participants >= 2 ? "disabled" : ""} data-id="${r.id}">${r.participants >= 2 ? "Full" : "Join room"}</button></div>`).join("") : `<div class="empty">No rooms yet. Start a new circuit for your pair.</div>`}</div></section>`;
-  root.querySelector("#back-name").onclick = () => landing();
+    `<section class="wrap"><div class="section-head"><div><div class="kicker">Workspace</div><h1>Choose a room</h1></div><button class="primary" id="new">New circuit</button></div><div class="rooms">${rooms.length ? rooms.map((r) => `<div class="room"><div><h3>${r.label}</h3><small>Grid ${r.gridSize}px · created ${new Date(r.createdAt).toLocaleDateString()}</small></div><span class="meta">${r.participants}/2 connected</span><button class="join" ${r.participants >= 2 ? "disabled" : ""} data-id="${r.id}">${r.participants >= 2 ? "Full" : "Join room"}</button></div>`).join("") : `<div class="empty">No rooms yet. Start a new circuit for your pair.</div>`}</div></section>`;
   root.querySelector("#new").onclick = () => newRoom();
   root
     .querySelectorAll(".join")
