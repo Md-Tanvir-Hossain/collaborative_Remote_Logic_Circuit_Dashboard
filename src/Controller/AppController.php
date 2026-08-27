@@ -49,6 +49,7 @@ class AppController
     #[Route('/api/circuits', methods: ['GET'])]
     public function circuits(): JsonResponse
     {
+        $this->removeStaleParticipants();
         return new JsonResponse(array_map(fn ($c) => [
             'id' => $c['id'], 'label' => $c['label'], 'gridSize' => $c['gridSize'],
             'participants' => count($c['participants']), 'maxParticipants' => 2,
@@ -63,7 +64,7 @@ class AppController
         $circuits = $this->read('circuits.json', []);
         $id = count($circuits) ? max(array_column($circuits, 'id')) + 1 : 1;
         $circuit = ['id' => $id, 'label' => trim($body['label'] ?? '') ?: 'Untitled circuit',
-            'gridSize' => max(10, min(40, (int) ($body['gridSize'] ?? 20))), 'createdAt' => date(DATE_ATOM),
+            'gridSize' => max(10, min(40, (int) ($body['gridSize'] ?? 20))), 'createdAt' => date(DATE_ATOM), 'nextInputNumber' => 1, 'nextOutputNumber' => 1,
             'participants' => [], 'components' => [], 'wires' => [], 'events' => []];
         $circuits[] = $circuit;
         $this->write('circuits.json', $circuits);
@@ -73,6 +74,7 @@ class AppController
     #[Route('/api/circuits/{id}', methods: ['GET'])]
     public function circuit(int $id): JsonResponse
     {
+        $this->removeStaleParticipants();
         $circuit = $this->find($id);
         return $circuit ? new JsonResponse($circuit) : new JsonResponse(['error' => 'Circuit not found'], 404);
     }
@@ -80,15 +82,18 @@ class AppController
     #[Route('/api/circuits/{id}/join', methods: ['POST'])]
     public function join(int $id, Request $request): JsonResponse
     {
+        $this->removeStaleParticipants();
         $circuit = $this->find($id);
         $body = json_decode($request->getContent(), true) ?: [];
         if (!$circuit) {
             return new JsonResponse(['error' => 'Circuit not found'], 404);
         }
-        if (count($circuit['participants']) >= 2) {
+        $sessionId = $body['sessionId'] ?? '';
+        if (count($circuit['participants']) >= 2 && !array_filter($circuit['participants'], fn ($participant) => $participant['session'] === $sessionId)) {
             return new JsonResponse(['error' => 'This circuit is full'], 409);
         }
-        $participant = ['name' => trim($body['name'] ?? 'Guest'), 'session' => $body['sessionId'] ?? bin2hex(random_bytes(8))];
+        $participant = ['name' => trim($body['name'] ?? 'Guest'), 'session' => $sessionId ?: bin2hex(random_bytes(8)), 'lastSeen' => time()];
+        $circuit['participants'] = array_values(array_filter($circuit['participants'], fn ($item) => $item['session'] !== $participant['session']));
         $circuit['participants'][] = $participant;
         $this->save($circuit);
         return new JsonResponse(['circuit' => $circuit]);
@@ -104,7 +109,15 @@ class AppController
         }
         $type = $payload['type'] ?? '';
         if ($type === 'component_added') {
-            $circuit['components'][] = $payload['component'];
+            $component = $payload['component'] ?? [];
+            if (in_array($component['type'] ?? '', ['INPUT', 'OUTPUT'], true)) {
+                $counter = $component['type'] === 'INPUT' ? 'nextInputNumber' : 'nextOutputNumber';
+                $prefix = $component['type'] === 'INPUT' ? 'INPUT' : 'OUTPUT';
+                $circuit[$counter] = $circuit[$counter] ?? count(array_filter($circuit['components'], fn ($item) => $item['type'] === $component['type'])) + 1;
+                $component['label'] = $prefix . str_pad((string) $circuit[$counter]++, 2, '0', STR_PAD_LEFT);
+                $payload['component'] = $component;
+            }
+            $circuit['components'][] = $component;
         }
         if ($type === 'component_moved') {
             foreach ($circuit['components'] as &$component) {
@@ -121,11 +134,27 @@ class AppController
             foreach ($circuit['components'] as &$component) {
                 if ($component['id'] == $payload['id']) {
                     $component['state'] = (bool) $payload['state'];
+                    $payload['label'] = $component['label'] ?? null;
                 }
             }
         }
         if ($type === 'wire_added') {
-            $circuit['wires'][] = $payload['wire'];
+            $wire = $payload['wire'] ?? [];
+            $destinationCount = count(array_filter($circuit['wires'], fn ($item) => $item['to'] == ($wire['to'] ?? null)));
+            $sourceCount = count(array_filter($circuit['wires'], fn ($item) => $item['from'] == ($wire['from'] ?? null)));
+            $destination = array_values(array_filter($circuit['components'], fn ($component) => $component['id'] == ($wire['to'] ?? null)))[0] ?? null;
+            $source = array_values(array_filter($circuit['components'], fn ($component) => $component['id'] == ($wire['from'] ?? null)))[0] ?? null;
+            $destinationLimit = $destination && in_array($destination['type'], ['NOT', 'OUTPUT'], true) ? 1 : 2;
+            if (!$source || !$destination || $source['type'] === 'OUTPUT' || $destination['type'] === 'INPUT' || $source['id'] === $destination['id']) {
+                return new JsonResponse(['error' => 'That connection is not valid'], 422);
+            }
+            if ($destinationCount >= $destinationLimit) {
+                return new JsonResponse(['error' => 'That input pin is already full'], 422);
+            }
+            if ($sourceCount >= 1) {
+                return new JsonResponse(['error' => 'That output pin is already connected'], 422);
+            }
+            $circuit['wires'][] = $wire;
         }
         if ($type === 'wire_removed') {
             $circuit['wires'] = array_values(array_filter($circuit['wires'], fn ($w) => $w['id'] != $payload['id']));
@@ -134,6 +163,37 @@ class AppController
         $circuit['events'] = array_slice($circuit['events'], -100);
         $this->save($circuit);
         return new JsonResponse($payload);
+    }
+
+    #[Route('/api/circuits/{id}/heartbeat', methods: ['POST'])]
+    public function heartbeat(int $id, Request $request): JsonResponse
+    {
+        $this->removeStaleParticipants();
+        $circuit = $this->find($id);
+        $sessionId = (json_decode($request->getContent(), true) ?: [])['sessionId'] ?? '';
+        if (!$circuit || !$sessionId) return new JsonResponse(['error' => 'Participant not found'], 404);
+        $found = false;
+        foreach ($circuit['participants'] as &$participant) {
+            if ($participant['session'] === $sessionId) {
+                $participant['lastSeen'] = time();
+                $found = true;
+            }
+        }
+        if (!$found) return new JsonResponse(['error' => 'Participant not found'], 404);
+        $this->save($circuit);
+        return new JsonResponse(['ok' => true]);
+    }
+
+    #[Route('/api/circuits/{id}/leave', methods: ['POST'])]
+    public function leave(int $id, Request $request): JsonResponse
+    {
+        $circuit = $this->find($id);
+        $sessionId = (json_decode($request->getContent(), true) ?: [])['sessionId'] ?? '';
+        if (!$circuit) return new JsonResponse(['error' => 'Circuit not found'], 404);
+        $circuit['participants'] = array_values(array_filter($circuit['participants'], fn ($participant) => $participant['session'] !== $sessionId));
+        $circuit['events'][] = ['id' => microtime(true), 'payload' => ['type' => 'participant_left', 'sessionId' => $sessionId]];
+        $this->save($circuit);
+        return new JsonResponse(['ok' => true]);
     }
 
     #[Route('/api/circuits/{id}/events', methods: ['GET'])]
@@ -186,5 +246,17 @@ class AppController
     private function write(string $file, array $data): void
     {
         file_put_contents($this->store . '/' . $file, json_encode($data, JSON_PRETTY_PRINT), LOCK_EX);
+    }
+
+    private function removeStaleParticipants(): void
+    {
+        $now = time();
+        $circuits = $this->read('circuits.json', []);
+        foreach ($circuits as &$circuit) {
+            $stale = array_filter($circuit['participants'], fn ($participant) => $now - ($participant['lastSeen'] ?? 0) > 30);
+            $circuit['participants'] = array_values(array_filter($circuit['participants'], fn ($participant) => $now - ($participant['lastSeen'] ?? 0) <= 30));
+            foreach ($stale as $participant) $circuit['events'][] = ['id' => microtime(true), 'payload' => ['type' => 'participant_left', 'sessionId' => $participant['session']]];
+        }
+        $this->write('circuits.json', $circuits);
     }
 }

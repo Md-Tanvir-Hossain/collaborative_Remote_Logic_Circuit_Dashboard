@@ -131,6 +131,11 @@ button {
   margin: 10px 0 0;
 }
 
+.section-actions {
+  display: flex;
+  gap: 10px;
+}
+
 .rooms {
   border-top: 1px solid var(--ink);
 }
@@ -200,6 +205,20 @@ button {
   margin: 0 0 22px;
 }
 
+.back {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  padding: 8px 11px;
+  border-radius: 3px;
+  margin-bottom: 22px;
+}
+
+.back:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .tools {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -239,6 +258,11 @@ button {
 .simulate:hover {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.simulate:active {
+  background: var(--ink);
+  color: var(--white);
 }
 
 .tool b {
@@ -298,6 +322,33 @@ button {
   color: var(--signal);
 }
 
+.output-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  padding: 8px 0;
+  font-size: 12px;
+}
+
+.output-row .value {
+  margin: 0;
+  font-size: 24px;
+}
+
+.notice {
+  min-height: 20px;
+  margin-top: 12px;
+  color: var(--accent);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+#print-output {
+  display: none;
+}
+
 .empty {
   padding: 50px 0;
   color: var(--muted);
@@ -330,5 +381,26 @@ button {
 
   .input {
     min-width: 0;
+  }
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+
+  .editor > :not(#print-output) {
+    display: none;
+  }
+
+  #print-output {
+    display: block;
+    padding: 24px;
+    color: #17211b;
+  }
+
+  #print-output h1 {
+    border-bottom: 1px solid #17211b;
+    padding-bottom: 12px;
   }
 }
