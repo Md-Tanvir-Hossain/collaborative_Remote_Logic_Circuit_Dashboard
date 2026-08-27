@@ -126,7 +126,7 @@ function openEditor(cs) {
     deleteMode = false,
     selected = null,
     values = evaluate(cs.components, cs.wires);
-  root.innerHTML = `<div class="editor">${header()}<div class="editor-main"><aside class="palette"><button class="back" id="back-lobby">Back</button><h2>Components</h2><div class="tools">${gates.map((g) => `<button class="tool component-tool" data-tool="${g}"><b>${g}</b></button>`).join("")}<button class="tool tool-action" id="wire-tool"><b>Wire</b></button><button class="tool tool-action" id="delete-tool"><b>Delete</b></button></div><button class="simulate" id="print-now">Print Now</button><p class="note">Choose a component, then place it on the grid. Wire and Delete are single-use modes.</p><div id="notice" class="notice" role="status"></div></aside><div class="canvas-wrap"><canvas class="canvas" width="900" height="640"></canvas></div><aside class="inspector"><h2>${cs.label}</h2><p class="note">Live signal monitor <span id="presence-status">${cs.participants.length}/2</span></p><div id="readout"></div><p class="note">Room link<br><strong>${location.origin}/?room=${cs.id}</strong></p></aside></div><div id="print-output"></div></div>`;
+  root.innerHTML = `<div class="editor">${header()}<div class="editor-main"><aside class="palette"><button class="back" id="back-lobby">Back</button><h2>Components</h2><div class="tools">${gates.map((g) => `<button class="tool component-tool" data-tool="${g}"><b>${g}</b></button>`).join("")}<button class="tool tool-action" id="wire-tool"><b>Wire</b></button><button class="tool tool-action" id="delete-tool"><b>Delete</b></button></div><button class="simulate" id="print-now">Print Now</button><p class="note">Choose a component, then place it on the grid. Wire and Delete are single-use modes.</p><div id="notice" class="notice" role="status"></div></aside><div class="canvas-wrap"><canvas class="canvas" width="900" height="640"></canvas></div><aside class="inspector"><h2>${cs.label}</h2><p class="note">Live signal monitor <span id="presence-status">${cs.participants.length}/2</span></p><div id="readout"></div><p class="note">Room link<br><strong>${location.origin}/?room=${cs.id}</strong></p></aside></div></div>`;
   const canvas = root.querySelector("canvas"),
     ctx = canvas.getContext("2d");
   root.querySelectorAll(".component-tool").forEach(
@@ -219,7 +219,6 @@ function openEditor(cs) {
             `<div class="output-row"><span>${c.label || "OUTPUT"}</span><strong class="value ${values[c.id] ? "signal-on" : ""}">${values[c.id] ? "1" : "0"}</strong></div>`,
         )
         .join("") || '<p class="note">Place an output to read a signal.</p>';
-    document.querySelector("#print-output").innerHTML = `<h1>${cs.label}</h1><p>Components</p><ul>${cs.components.map((c) => `<li>${c.label || c.type}: ${c.type} at (${c.x}, ${c.y})</li>`).join("")}</ul><p>Wires</p><ul>${cs.wires.map((w) => `<li>${cs.components.find((c) => c.id === w.from)?.label || w.from} to ${cs.components.find((c) => c.id === w.to)?.label || w.to}</li>`).join("") || "<li>None</li>"}</ul>`;
   }
   function point(e) {
     const r = canvas.getBoundingClientRect();

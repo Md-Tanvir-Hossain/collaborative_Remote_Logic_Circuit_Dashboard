@@ -345,10 +345,6 @@ button {
   line-height: 1.4;
 }
 
-#print-output {
-  display: none;
-}
-
 .empty {
   padding: 50px 0;
   color: var(--muted);
@@ -389,18 +385,36 @@ button {
     background: #fff;
   }
 
-  .editor > :not(#print-output) {
+  .editor {
+    height: auto;
+  }
+
+  .editor > .topbar,
+  .palette {
     display: none;
   }
 
-  #print-output {
-    display: block;
-    padding: 24px;
-    color: #17211b;
+  .editor-main {
+    display: grid;
+    grid-template-columns: 1fr 230px;
   }
 
-  #print-output h1 {
-    border-bottom: 1px solid #17211b;
-    padding-bottom: 12px;
+  .canvas-wrap {
+    padding: 0;
+    overflow: visible;
+  }
+
+  .canvas {
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .inspector {
+    display: block;
+    padding: 0 0 0 20px;
+    border-left: 1px solid var(--line);
   }
 }
